@@ -1,0 +1,4 @@
+- id: analyst-readonly
+  allowedToolIds: [load_skill, read_skill_resource, read_file]
+  readTaskFile: true
+  readSkillResources: true

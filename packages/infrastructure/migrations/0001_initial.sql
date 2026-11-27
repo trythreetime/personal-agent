@@ -1,0 +1,15 @@
+CREATE TABLE digital_workers (id TEXT PRIMARY KEY, data TEXT NOT NULL);
+CREATE TABLE model_configs (id TEXT PRIMARY KEY, data TEXT NOT NULL);
+CREATE TABLE skill_catalog (id TEXT PRIMARY KEY, data TEXT NOT NULL);
+CREATE TABLE permission_policies (id TEXT PRIMARY KEY, data TEXT NOT NULL);
+CREATE TABLE sessions (id TEXT PRIMARY KEY, workerId TEXT NOT NULL REFERENCES digital_workers(id), createdAt TEXT NOT NULL);
+CREATE TABLE uploads (id TEXT PRIMARY KEY, name TEXT NOT NULL, size INTEGER NOT NULL, storageKey TEXT NOT NULL, hash TEXT NOT NULL, taskId TEXT UNIQUE REFERENCES tasks(id), createdAt TEXT NOT NULL);
+CREATE TABLE tasks (id TEXT PRIMARY KEY, sessionId TEXT NOT NULL REFERENCES sessions(id), workerId TEXT NOT NULL REFERENCES digital_workers(id), workerName TEXT NOT NULL, uploadId TEXT NOT NULL REFERENCES uploads(id), input TEXT NOT NULL, requestKey TEXT NOT NULL UNIQUE, requestDigest TEXT NOT NULL, createdAt TEXT NOT NULL);
+CREATE TABLE agent_runs (id TEXT PRIMARY KEY, taskId TEXT NOT NULL REFERENCES tasks(id), attempt INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL, snapshot TEXT NOT NULL, output TEXT, usage TEXT NOT NULL, error TEXT, createdAt TEXT NOT NULL, startedAt TEXT, endedAt TEXT);
+CREATE UNIQUE INDEX run_attempt ON agent_runs(taskId, attempt);
+CREATE TABLE messages (id TEXT PRIMARY KEY, sessionId TEXT NOT NULL REFERENCES sessions(id), taskId TEXT NOT NULL REFERENCES tasks(id), role TEXT NOT NULL, content TEXT NOT NULL);
+CREATE TABLE run_events (runId TEXT NOT NULL REFERENCES agent_runs(id), seq INTEGER NOT NULL, type TEXT NOT NULL, data TEXT NOT NULL);
+CREATE UNIQUE INDEX run_event_seq ON run_events(runId, seq);
+CREATE TABLE tool_calls (callId TEXT PRIMARY KEY, runId TEXT NOT NULL REFERENCES agent_runs(id), toolId TEXT NOT NULL, status TEXT NOT NULL, summary TEXT NOT NULL, durationMs INTEGER NOT NULL);
+CREATE INDEX task_created ON tasks(createdAt, id);
+CREATE INDEX run_status ON agent_runs(status, createdAt);

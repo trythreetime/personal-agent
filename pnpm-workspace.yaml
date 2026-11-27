@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - packages/*
+
+storeDir: .pnpm-store
+
+allowBuilds:
+  core-js: false
+  better-sqlite3: true
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - vite@8.4.0

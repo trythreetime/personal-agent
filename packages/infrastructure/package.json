@@ -1,0 +1,18 @@
+{
+  "name": "@digital-worker/infrastructure",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@digital-worker/core": "workspace:*",
+    "@digital-worker/contracts": "workspace:*",
+    "better-sqlite3": "^12.4.1",
+    "drizzle-orm": "0.45.4",
+    "yaml": "^2.8.1",
+    "pino": "^10.1.0",
+    "zod": "^4.1.12"
+  }
+}

@@ -1,0 +1,3 @@
+maxTurns: 10
+timeoutMs: 180000
+maxUploadBytes: 2097152

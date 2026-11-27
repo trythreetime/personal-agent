@@ -1,0 +1,30 @@
+{
+  "name": "digital-worker-platform",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"pnpm --filter @digital-worker/server dev\" \"pnpm --filter @digital-worker/web dev\"",
+    "dev:demo": "AGENT_DEMO_MODE=true pnpm dev",
+    "build": "pnpm typecheck && pnpm --filter @digital-worker/web build",
+    "start": "pnpm --filter @digital-worker/server start",
+    "typecheck": "tsc --noEmit && vue-tsc --noEmit -p apps/web/tsconfig.json",
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "test": "pnpm check:boundaries && vitest run",
+    "test:e2e": "playwright test",
+    "format": "prettier --write \"{apps,packages,scripts,tests}/**/*.{ts,mjs,vue,css,json,html}\" \"*.{ts,json}\""
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.19.0",
+    "concurrently": "^9.2.1",
+    "prettier": "3.6.2",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0",
+    "vue-tsc": "^3.1.4"
+  }
+}

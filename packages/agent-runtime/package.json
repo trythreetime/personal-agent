@@ -1,0 +1,16 @@
+{
+  "name": "@digital-worker/agent-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@digital-worker/core": "workspace:*",
+    "@digital-worker/contracts": "workspace:*",
+    "@openai/agents": "0.22.0",
+    "openai": "7.64.0",
+    "zod": "^4.1.12"
+  }
+}
