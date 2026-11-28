@@ -38,3 +38,8 @@ export function dateTime(value: string) {
     hour12: false,
   });
 }
+
+export function toolLabel(id: string) {
+  const parts = id.match(/^mcp_(.+?)__(.+)$/);
+  return parts ? 'MCP · ' + parts[1] + ' / ' + parts[2] : id;
+}

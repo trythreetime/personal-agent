@@ -8,6 +8,7 @@ import {
   Tag,
   TypographyTitle,
 } from 'ant-design-vue';
+import { toolLabel } from '../../lib/api';
 import type { WorkerDto } from '@digital-worker/contracts';
 
 defineProps<{ worker: WorkerDto; open: boolean }>();
@@ -44,7 +45,9 @@ const emit = defineEmits<{ close: [] }>();
             <span v-if="!worker.skills.length">未绑定</span>
           </Space>
         </DescriptionsItem>
-        <DescriptionsItem label="工具">{{ worker.tools.join('、') || '未绑定' }}</DescriptionsItem>
+        <DescriptionsItem label="工具">{{
+          worker.tools.map(toolLabel).join('、') || '未绑定'
+        }}</DescriptionsItem>
       </Descriptions>
     </div>
   </Modal>

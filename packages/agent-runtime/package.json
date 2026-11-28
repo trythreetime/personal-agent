@@ -11,6 +11,6 @@
     "@digital-worker/contracts": "workspace:*",
     "@openai/agents": "0.22.0",
     "openai": "7.64.0",
-    "zod": "^4.1.12"
+    "zod": "^4.6.7"
   }
 }

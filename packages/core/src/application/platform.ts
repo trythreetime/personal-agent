@@ -32,6 +32,7 @@ export interface PlatformDependencies {
   limits: { maxTurns: number; timeoutMs: number; maxUploadBytes: number };
 }
 export class AgentPlatform {
+  private toolHistory = new Map<string, ToolDefinition>();
   private workers;
   private models;
   private skills;
@@ -47,6 +48,7 @@ export class AgentPlatform {
     this.skills = new Registry(deps.catalog.skills);
     this.policies = new Registry(deps.catalog.policies);
     this.tools = new Registry(deps.tools);
+    this.rememberTools(deps.tools);
     for (const policy of this.policies.all()) {
       for (const id of policy.allowedToolIds) this.tools.get(id);
     }
@@ -55,7 +57,50 @@ export class AgentPlatform {
       this.policies.get(w.permissionPolicyId);
       for (const id of w.skillIds) this.skills.get(id);
       for (const id of w.toolIds) this.tools.get(id);
+      for (const id of w.toolIds) {
+        const source = this.tools.get(id).source;
+        if (source && !w.mcpServerIds.includes(source.serverId))
+          throw new PlatformError('MCP_NOT_BOUND', 'MCP 工具需要绑定对应的服务');
+      }
     }
+  }
+  private rememberTools(tools: ToolDefinition[]) {
+    for (const tool of tools)
+      if (tool.source) this.toolHistory.set(tool.id + '@' + tool.source.version, tool);
+  }
+  applyMcp(entries: Array<{ serverId: string; workerIds: string[]; tools: ToolDefinition[] }>) {
+    const mcpTools = entries.flatMap((entry) => entry.tools);
+    const workers = this.deps.catalog.workers.map((worker) => {
+      const bound = entries.filter((entry) => entry.workerIds.includes(worker.id));
+      return {
+        ...worker,
+        mcpServerIds: bound.map((entry) => entry.serverId),
+        toolIds: [
+          ...worker.toolIds.filter((id) => !id.startsWith('mcp_')),
+          ...bound.flatMap((entry) => entry.tools.map((tool) => tool.id)),
+        ],
+      };
+    });
+    const policies = this.deps.catalog.policies.map((policy) => ({
+      ...policy,
+      allowedToolIds: [
+        ...new Set([
+          ...policy.allowedToolIds.filter((id) => !id.startsWith('mcp_')),
+          ...workers
+            .filter((worker) => worker.permissionPolicyId === policy.id)
+            .flatMap((worker) => worker.toolIds.filter((id) => id.startsWith('mcp_'))),
+        ]),
+      ],
+    }));
+    const tools = [...this.deps.tools.filter((tool) => !tool.source), ...mcpTools];
+    const workerRegistry = new Registry(workers);
+    const policyRegistry = new Registry(policies);
+    const toolRegistry = new Registry(tools);
+    this.rememberTools(mcpTools);
+    this.workers = workerRegistry;
+    this.policies = policyRegistry;
+    this.tools = toolRegistry;
+    this.deps.catalog = { ...this.deps.catalog, workers, policies };
   }
   async start() {
     await this.deps.store.importCatalog(this.deps.catalog);
@@ -153,6 +198,12 @@ export class AgentPlatform {
       model,
       policy,
       skills: worker.skillIds.map((id) => this.skills.get(id)),
+      toolVersions: Object.fromEntries(
+        worker.toolIds.flatMap((id) => {
+          const source = this.tools.get(id).source;
+          return source ? [[id, source.version]] : [];
+        }),
+      ),
     };
     const task = await this.deps.store.createTask({
       id: crypto.randomUUID(),
@@ -214,7 +265,10 @@ export class AgentPlatform {
         const history = await this.deps.store.sessionHistory(task.sessionId, task.id);
         const plan = buildPlan(run, task, this.deps.limits, history);
         const definitions = run.snapshot.worker.toolIds
-          .map((id) => this.tools.get(id))
+          .map((id) => {
+            const version = run.snapshot.toolVersions?.[id];
+            return (version && this.toolHistory.get(id + '@' + version)) || this.tools.get(id);
+          })
           .filter(
             (t) =>
               t.enabled &&

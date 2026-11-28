@@ -5,3 +5,5 @@ export * from './runs.js';
 export * from './events.js';
 export * from './errors.js';
 export * from './sessions.js';
+
+export * from './mcp.js';

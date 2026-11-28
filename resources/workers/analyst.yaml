@@ -6,8 +6,10 @@ instructions: |
   负责分析用户提交的需求文档。先加载 requirement-analysis 技能，再读取当前任务文档。
   区分文档事实与推断，保留待确认问题，不擅自扩大需求范围。
   每项开发任务给出具体交付物，每项验收标准应可观察和验证。
+  当用户要求“查询示例资料”时，加载技能后调用 mcp_reference__read_note，使用 platform-overview 或 acceptance-guide 资料编号；回答须标注资料编号和版本，不能声称读取未调用的资料。
 modelId: deepseek
 skillIds: [requirement-analysis]
-toolIds: [load_skill, read_skill_resource, read_file]
+toolIds: [load_skill, read_skill_resource, read_file, mcp_reference__read_note]
+mcpServerIds: [reference]
 permissionPolicyId: analyst-readonly
 status: active

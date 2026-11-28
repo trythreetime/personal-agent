@@ -8,7 +8,7 @@ import {
   FileTextOutlined,
 } from '@ant-design/icons-vue';
 import { isTerminal, type TaskDto, type RunEvent } from '@digital-worker/contracts';
-import { api, dateTime, describeError, statusLabels, statusColors } from '../../lib/api';
+import { api, dateTime, describeError, statusLabels, statusColors, toolLabel } from '../../lib/api';
 import { renderMarkdown } from '../../lib/markdown';
 
 const props = defineProps<{
@@ -47,13 +47,13 @@ function label(event: RunEvent) {
     case 'run.started':
       return '数字人开始回复';
     case 'tool.started':
-      return `调用 ${event.payload.toolId}`;
+      return `调用 ${toolLabel(event.payload.toolId)}`;
     case 'tool.completed':
-      return `${event.payload.toolId} 已完成`;
+      return `${toolLabel(event.payload.toolId)} 已完成`;
     case 'tool.denied':
-      return `${event.payload.toolId} 权限被拒绝`;
+      return `${toolLabel(event.payload.toolId)} 权限被拒绝`;
     case 'tool.failed':
-      return `${event.payload.toolId} 执行失败`;
+      return `${toolLabel(event.payload.toolId)} 执行失败`;
     case 'usage.updated':
       return '模型用量已更新';
     case 'run.completed':
@@ -167,7 +167,7 @@ function download() {
             ><template #renderItem="{ item }"
               ><ListItem
                 ><span
-                  >{{ item.toolId }}
+                  >{{ toolLabel(item.toolId) }}
                   {{
                     item.status === 'completed'
                       ? '已完成'

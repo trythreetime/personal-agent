@@ -203,3 +203,102 @@ test('Markdown 回复不会执行脚本或自动加载远程资源', async ({ pa
   await expect(page.locator('.markdown img, .markdown script, .markdown iframe')).toHaveCount(0);
   expect(external).toEqual([]);
 });
+
+test('网页通过真实 MCP 查询示例资料，追问与刷新保留调用记录', async ({ page }) => {
+  await page.goto('/');
+  await openWorker(page);
+  await newSession(page);
+  await page.getByRole('button', { name: '查询 MCP 示例资料', exact: true }).click();
+  await expect(page.getByLabel('消息内容')).toHaveValue(/查询示例资料/);
+  await send(page, '查询示例资料：请说明项目代号，并注明资料来源和版本。');
+  const session = new URL(page.url()).searchParams.get('session');
+  await expect(page.locator('.markdown').last()).toContainText('青禾');
+  await expect(page.locator('.markdown').last()).toContainText('platform-overview');
+  await page.getByRole('button', { name: '查看执行过程', exact: true }).last().click();
+  await expect(page.locator('.chat-trace').last()).toContainText(
+    'MCP · reference / read_note 已完成',
+  );
+  await send(page, '查询示例资料：继续说明权限规则');
+  expect(new URL(page.url()).searchParams.get('session')).toBe(session);
+  await page.reload();
+  await expect(page.locator('.conversation-turn')).toHaveCount(2);
+  await page.getByRole('button', { name: '查看执行过程', exact: true }).last().click();
+  await expect(page.locator('.chat-trace').last()).toContainText(
+    'MCP · reference / read_note 已完成',
+  );
+  await page.screenshot({ path: 'test-results/mcp-conversation.png', fullPage: true });
+});
+
+test('MCP 管理页测试连接、新增绑定、编辑、停用和删除，刷新保留配置', async ({ page }) => {
+  const id = 'e2e-' + crypto.randomUUID().slice(0, 8);
+  const name = '浏览器资料服务 ' + id;
+  const toolId = 'mcp_' + id + '__read_note';
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await page.getByRole('link', { name: 'MCP 管理', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'MCP 管理', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '新增 MCP', exact: true }).click();
+  const editor = page.locator('.ant-drawer-content').filter({
+    has: page.getByText('新增 MCP 服务', { exact: true }),
+  });
+  await editor.getByLabel(/服务名称/).fill(name);
+  await editor.getByLabel(/服务 ID/).fill(id);
+  await editor.getByRole('button', { name: '填入内置资料服务', exact: true }).click();
+  await editor.getByRole('button', { name: '测试连接', exact: true }).click();
+  await expect(editor).toContainText('连接成功，发现 1 个工具');
+  await editor.locator('#mcp-tools').click();
+  await page
+    .locator('.ant-select-dropdown:visible')
+    .getByTitle('read_note', { exact: true })
+    .click();
+  await editor.getByText('新增 MCP 服务', { exact: true }).click();
+  await editor.locator('#mcp-workers').click();
+  await page
+    .locator('.ant-select-dropdown:visible')
+    .getByTitle('需求分析师', { exact: true })
+    .click();
+  await editor.getByText('新增 MCP 服务', { exact: true }).click();
+  await editor.getByRole('button', { name: '保存配置', exact: true }).click();
+  await expect(editor).toBeHidden();
+  const row = page.getByRole('row').filter({ hasText: id });
+  await expect(row).toContainText('已验证');
+  await expect(row).toContainText('需求分析师');
+  async function boundTools() {
+    const response = await page.request.get('/api/workers');
+    expect(response.ok()).toBe(true);
+    const body = await response.json();
+    return body.items.find((worker: { id: string }) => worker.id === 'requirements-analyst').tools;
+  }
+  await expect.poll(boundTools).toContain(toolId);
+  await page.reload();
+  await expect(row).toContainText(name);
+  await row.getByRole('button', { name: '编辑 ' + name, exact: true }).click();
+  const editing = page.locator('.ant-drawer-content').filter({
+    has: page.getByText('编辑 MCP 服务', { exact: true }),
+  });
+  await expect(editing.getByLabel(/服务 ID/)).toBeDisabled();
+  await editing.getByLabel(/服务名称/).fill(name + ' 已编辑');
+  await editing.getByRole('button', { name: '保存配置', exact: true }).click();
+  await expect(editing).toBeHidden();
+  await expect(row).toContainText(name + ' 已编辑');
+  await row.getByRole('switch').click();
+  await expect(row).toContainText('已停用');
+  await expect.poll(boundTools).not.toContain(toolId);
+  await page.reload();
+  await expect(row).toContainText('已停用');
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await row.getByRole('button', { name: '删除', exact: true }).click();
+  await page
+    .getByRole('tooltip')
+    .getByRole('button', { name: /^删\s*除$/ })
+    .click();
+  await expect(row).toHaveCount(0);
+  await page.reload();
+  await expect(row).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

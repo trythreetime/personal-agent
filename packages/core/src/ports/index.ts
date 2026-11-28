@@ -18,6 +18,33 @@ import type {
   UploadRecord,
   ConversationMessage,
 } from '../domain/index.js';
+import type { McpServerConfig, McpToolInfo } from '@digital-worker/contracts';
+import type { ToolDefinition } from '../domain/index.js';
+
+export interface ManagedMcpEntry {
+  name: string;
+  config: McpServerConfig;
+  workerIds: string[];
+  configurationRevision?: number;
+}
+export interface McpSettingsState {
+  revision: number;
+  entries: ManagedMcpEntry[];
+  secrets: Record<string, string>;
+}
+export interface McpSettingsStore {
+  load(): Promise<McpSettingsState | null>;
+  save(state: McpSettingsState): Promise<void>;
+}
+export interface McpToolBundle {
+  tools: ToolDefinition[];
+  info: McpToolInfo[];
+  close(): Promise<void>;
+}
+export interface McpConnector {
+  inspect(config: McpServerConfig, secrets: Record<string, string>): Promise<McpToolInfo[]>;
+  prepare(config: McpServerConfig, secrets: Record<string, string>): Promise<McpToolBundle>;
+}
 
 export interface PlatformStore {
   importCatalog(catalog: Catalog): Promise<void>;

@@ -7,6 +7,8 @@ import {
   workerConfigSchema,
   modelConfigSchema,
   policySchema,
+  mcpServerConfigSchema,
+  Registry,
   type Catalog,
   type Skill,
   PlatformError,
@@ -105,5 +107,13 @@ export async function loadConfiguration(root: string, env: NodeJS.ProcessEnv = p
     for (const w of workers) w.modelId = 'local-demo';
   }
   const catalog: Catalog = { models, workers, policies, skills };
-  return { catalog, limits };
+  const mcpPath = resolve(root, 'config/mcp.yaml');
+  const mcpServers = z.array(mcpServerConfigSchema).parse(
+    await yaml(mcpPath).catch((error) => {
+      if (error.code === 'ENOENT') return [];
+      throw error;
+    }),
+  );
+  new Registry(mcpServers);
+  return { catalog, limits, mcpServers };
 }

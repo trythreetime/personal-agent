@@ -8,6 +8,7 @@ const router = createRouter({
   routes: [
     { path: '/', component: () => import('./pages/Workers.vue') },
     { path: '/tasks/:id', component: () => import('./pages/Workers.vue') },
+    { path: '/mcp', component: () => import('./pages/Mcp.vue') },
     { path: '/history', component: () => import('./pages/History.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

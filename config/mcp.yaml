@@ -1,0 +1,9 @@
+# Only tools explicitly listed here and bound to a worker/policy are exposed.
+# This bundled service reads two public sample documents; it has no platform credentials.
+- id: reference
+  transport: stdio
+  command: node
+  args: [mcp-servers/reference/src/index.mjs]
+  allowedTools: [read_note]
+  timeoutMs: 10000
+  enabled: true

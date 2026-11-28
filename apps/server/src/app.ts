@@ -10,6 +10,9 @@ import {
   runDtoSchema,
   taskDtoSchema,
   sessionDtoSchema,
+  mcpWriteSchema,
+  mcpProbeSchema,
+  mcpRevisionSchema,
 } from '@digital-worker/contracts';
 import { bootstrap, type BootstrapOptions } from './bootstrap/index.js';
 import { streamEvents } from './http/sse/index.js';
@@ -86,6 +89,27 @@ export async function createApp(options: BootstrapOptions) {
     }
     if (status >= 500) logger.error({ requestId: request.id, code }, 'HTTP 请求失败');
     reply.code(status).send({ code, message, requestId: request.id });
+  });
+  app.get('/api/mcp', async () => services.mcp.list());
+  app.post('/api/mcp/probe', async (request) =>
+    services.mcp.probe(mcpProbeSchema.parse(request.body)),
+  );
+  app.post('/api/mcp', async (request, reply) => {
+    const result = await services.mcp.save(mcpWriteSchema.parse(request.body));
+    return reply.code(201).send(result);
+  });
+  app.put('/api/mcp/:id', async (request) => {
+    const { id } = z
+      .object({ id: z.string().regex(/^[a-z][a-z0-9-]{0,23}$/) })
+      .parse(request.params);
+    return services.mcp.save(mcpWriteSchema.parse(request.body), id);
+  });
+  app.delete('/api/mcp/:id', async (request) => {
+    const { id } = z
+      .object({ id: z.string().regex(/^[a-z][a-z0-9-]{0,23}$/) })
+      .parse(request.params);
+    const { expectedRevision } = mcpRevisionSchema.parse(request.body);
+    return services.mcp.remove(id, expectedRevision);
   });
   app.get('/api/health', async () => ({
     status: 'ready',
@@ -183,6 +207,7 @@ export async function createApp(options: BootstrapOptions) {
     await platform.stop();
   });
   app.addHook('onClose', async () => {
+    await services.mcp.close();
     store.close();
   });
   return { app, ...services };

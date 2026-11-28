@@ -433,7 +433,18 @@ onBeforeUnmount(() => {
                 ><Tag v-for="skill in worker.skills" :key="skill.id" color="blue">{{
                   skill.name
                 }}</Tag></Space
-              ><Button @click="sample">从一份示例需求开始</Button>
+              ><Space direction="vertical">
+                <Button @click="sample">从一份示例需求开始</Button>
+                <Button
+                  v-if="worker.tools.includes('mcp_reference__read_note')"
+                  type="link"
+                  @click="
+                    input = '查询示例资料：请说明示例项目代号、平台能力，并注明资料来源和版本。';
+                    focusInput();
+                  "
+                  >查询 MCP 示例资料</Button
+                >
+              </Space>
             </div>
             <ConversationTurn
               v-for="turn in visibleTurns"

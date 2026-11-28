@@ -8,13 +8,15 @@ const allowed = {
   'packages/agent-runtime': ['contracts', 'core'],
   'packages/infrastructure': ['contracts', 'core'],
 };
+for (const entry of await readdir('mcp-servers', { withFileTypes: true }))
+  if (entry.isDirectory()) allowed['mcp-servers/' + entry.name] = [];
 const failures = [];
 async function scan(root, directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     if (['node_modules', 'dist'].includes(entry.name)) continue;
     const path = resolve(directory, entry.name);
     if (entry.isDirectory()) await scan(root, path);
-    else if (/\.(ts|vue)$/.test(entry.name)) {
+    else if (/\.(ts|vue|mjs)$/.test(entry.name)) {
       const source = await readFile(path, 'utf8');
       const imports = [
         ...source.matchAll(/(?:from\s*|import\s*\(\s*|import\s*)['"]([^'"]+)['"]/g),

@@ -16,6 +16,7 @@ export function authorizedTools(
     id: tool.id,
     description: tool.description,
     parameters: tool.parameters,
+    inputSchema: tool.inputSchema,
     async execute(input) {
       const callId = crypto.randomUUID();
       const start = Date.now();
@@ -33,13 +34,25 @@ export function authorizedTools(
           !policy.allowedToolIds.includes(tool.id)
         )
           throw new PlatformError('TOOL_NOT_AUTHORIZED', '工具未获授权', 403);
+        if (tool.source && !(worker.mcpServerIds ?? []).includes(tool.source.serverId))
+          throw new PlatformError('MCP_NOT_AUTHORIZED', 'MCP 服务未绑定到当前数字人', 403);
+        if (tool.source && context.snapshot.toolVersions?.[tool.id] !== tool.source.version)
+          throw new PlatformError(
+            'TOOL_CONFIGURATION_CHANGED',
+            '工具配置已变更，请新建任务后重试',
+            409,
+          );
         if (tool.requiresApproval || tool.riskLevel === 'high')
           throw new PlatformError('APPROVAL_NOT_SUPPORTED', '首版不支持需审批或高风险工具', 403);
         const parsed = tool.parameters.safeParse(input);
         if (!parsed.success) throw new PlatformError('INVALID_TOOL_INPUT', '工具参数无效');
         await store.appendEvent(context.runId, {
           type: 'tool.started',
-          payload: { callId, toolId: tool.id, summary: '只读访问已授权资源' },
+          payload: {
+            callId,
+            toolId: tool.id,
+            summary: tool.source ? '调用已授权的 MCP 只读工具' : '只读访问已授权资源',
+          },
         });
         const result = await tool.execute(parsed.data, context);
         context.signal.throwIfAborted();
@@ -49,12 +62,17 @@ export function authorizedTools(
           callId,
           toolId: tool.id,
           status: 'completed',
-          summary: '读取完成',
+          summary: tool.source ? 'MCP 调用完成' : '读取完成',
           durationMs,
         });
         await store.appendEvent(context.runId, {
           type: 'tool.completed',
-          payload: { callId, toolId: tool.id, durationMs, summary: '读取完成' },
+          payload: {
+            callId,
+            toolId: tool.id,
+            durationMs,
+            summary: tool.source ? 'MCP 调用完成' : '读取完成',
+          },
         });
         return result;
       } catch (error) {

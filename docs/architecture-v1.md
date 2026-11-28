@@ -4,6 +4,8 @@
 
 本基线承接原始《数字人智能体平台 V1.0》设计，并以本次确定的网页验收范围为准。仓库已实现网页闭环和核心适配，完成情况与运行方式见根目录 README。真实供应商验收需要本地凭证，不以演示或本地接口测试替代。
 
+本基线已补充自定义 MCP 只读工具闭环：配置、发现、数字人绑定、授权调用、超时/取消、网页执行记录与 MCP 管理，详细配置见 docs/extensions.md。
+
 ## 一 交付目标与范围
 
 ### 首个验收场景
@@ -18,10 +20,10 @@
 
 | 能力 | 第一版交付 | 后续扩展 |
 | --- | --- | --- |
-| Web | 数字人卡片、双栏会话抽屉、文字与文档消息、连续追问、执行展示、历史、取消 | 数字人与能力配置后台 |
+| Web | 数字人卡片、双栏会话抽屉、文字与文档消息、连续追问、执行展示、历史、取消、MCP 管理 | 数字人、模型与技能配置后台 |
 | 数字人 | 从配置导入、校验、列表、详情、启停配置 | 网页增删改、岗位模板 |
 | 模型 | 配置注册、按数字人绑定；完成一个真实模型的闭环 | 新增模型协议与供应商适配 |
-| 工具 | 注册、Schema 校验、授权、受控执行 | 写文件、HTTP、MCP、其他 Agent |
+| 工具 | 注册、Schema 校验、授权、受控执行、MCP 只读工具 | 写文件、通用 HTTP、其他 Agent |
 | 技能 | 发现元数据、绑定、按需读取正文和引用文件 | 安装、更新、版本管理 |
 | Runtime | Agent 构建、SDK 执行、流式事件、超时、取消、轮次限制 | 审批恢复、协作、结构化输出策略 |
 | Session | 多轮业务消息持久化、按数字人隔离、有限历史回放 | SDK 专有运行状态保存与恢复 |
@@ -80,7 +82,7 @@ flowchart TD
 | 应用层 | 创建任务、查询记录、取消运行、组织一次执行 | `core/application` | 数字人管理用例、审批用例 |
 | 数字人层 | 身份、能力绑定、启停、配置引用 | `core/domain` 的 Worker 配置 | 更多岗位与生命周期规则 |
 | 编排层 | 决定任务何时执行、如何衔接 | `core/application/platform.ts` 内的串行派发 | 工作流、调度和协作，新增独立编排模块 |
-| 运行层 | 构建 Agent、模型适配、SDK 调用、事件转换 | `agent-runtime` | MCP SDK 集成、审批恢复 |
+| 运行层 | 构建 Agent、模型适配、SDK 调用、事件转换 | `agent-runtime` | MCP OAuth、审批恢复 |
 | 能力层 | 模型、技能、工具等能力的注册与解析 | Core 注册规则加对应适配器 | Knowledge 与更多工具来源 |
 | 运行支撑层 | 上下文、权限、会话、文件与资源约束 | Core 策略加 Infrastructure 实现 | Memory、压缩、沙箱 |
 | 基础设施层 | 数据库、磁盘、配置、日志和密钥解析 | `infrastructure` | 对象存储、向量库、队列 |
@@ -120,6 +122,7 @@ personal-agent/
 │       │   │   └── markdown.ts
 │       │   ├── pages/
 │       │   │   ├── History.vue
+│       │   │   ├── Mcp.vue
 │       │   │   └── Workers.vue
 │       │   ├── ui/
 │       │   │   └── theme.ts
@@ -131,8 +134,9 @@ personal-agent/
 │       ├── package.json
 │       ├── tsconfig.json
 │       └── vite.config.ts
-├── config/  # 平台模型与权限配置
+├── config/  # 平台、模型、权限与 MCP 配置
 │   ├── README.md
+│   ├── mcp.yaml
 │   ├── models.yaml
 │   ├── permissions.yaml
 │   └── platform.yaml
@@ -141,11 +145,21 @@ personal-agent/
 │   ├── examples/
 │   │   └── team-task-board-requirements.md
 │   ├── architecture-v1.md
-│   └── extensions.md
+│   ├── extensions.md
+│   └── mcp-verification.md
+├── mcp-servers/  # 独立 MCP 示例服务，不依赖平台业务模块
+│   └── reference/
+│       ├── resources/notes/
+│       │   ├── acceptance-guide.md
+│       │   └── platform-overview.md
+│       ├── src/index.mjs
+│       └── package.json
 ├── packages/  # 共享契约与内部模块
 │   ├── agent-runtime/
 │   │   ├── src/
 │   │   │   ├── factory/
+│   │   │   │   └── index.ts
+│   │   │   ├── mcp/
 │   │   │   │   └── index.ts
 │   │   │   ├── models/
 │   │   │   │   └── index.ts
@@ -160,6 +174,7 @@ personal-agent/
 │   │   │   ├── errors.ts
 │   │   │   ├── events.ts
 │   │   │   ├── index.ts
+│   │   │   ├── mcp.ts
 │   │   │   ├── runs.ts
 │   │   │   ├── sessions.ts
 │   │   │   ├── tasks.ts
@@ -172,6 +187,8 @@ personal-agent/
 │   │   │   ├── application/
 │   │   │   │   ├── context/
 │   │   │   │   │   └── builder.ts
+│   │   │   │   ├── mcp/
+│   │   │   │   │   └── management.ts
 │   │   │   │   ├── tools/
 │   │   │   │   │   └── invoker.ts
 │   │   │   │   └── platform.ts
@@ -188,7 +205,8 @@ personal-agent/
 │       │   └── 0002_conversations.sql
 │       ├── src/
 │       │   ├── config/
-│       │   │   └── load.ts
+│       │   │   ├── load.ts
+│       │   │   └── mcp-settings.ts
 │       │   ├── credentials/
 │       │   │   └── environment.ts
 │       │   ├── database/
@@ -219,9 +237,13 @@ personal-agent/
 │   ├── e2e/
 │   │   └── workbench.spec.ts
 │   ├── fixtures/
+│   │   ├── mcp-server.mjs
 │   │   ├── runtime.ts
 │   │   └── sample.md
 │   ├── integration/
+│   │   ├── mcp-management.test.ts
+│   │   ├── mcp-sdk.test.ts
+│   │   ├── mcp.test.ts
 │   │   ├── platform.test.ts
 │   │   ├── sdk-compatible.test.ts
 │   │   └── sessions.test.ts
@@ -297,7 +319,7 @@ Core 使用 contracts 中稳定的状态、事件和通用数据 Schema；HTTP �
 | Tool | id、name、description、输入 Schema、riskLevel、requiresApproval、enabled、执行回调 |
 | PermissionPolicy | id、allowedToolIds、任务文件读取规则、技能资源读取规则 |
 
-Worker 的人格与头像是可选字段，workspace 由服务端根据 workerId/taskId 派生，不能由网页指定。尚未实现 Memory、Knowledge 和 MCP 时不要求虚构相应资源 ID。Model 的 protocol 首版接受 `responses` 或 `chat_completions`，provider 用于选择适配器；不支持的组合在启动时拒绝。Tool 是进程内注册对象，执行回调不出现在对外 DTO 或持久化配置中。
+Worker 的人格与头像是可选字段，workspace 由服务端根据 workerId/taskId 派生，不能由网页指定。尚未实现 Memory 和 Knowledge 时不要求虚构相应资源 ID。MCP 使用 mcpServerIds 绑定服务，并通过 toolIds 绑定白名单工具。Model 的 protocol 首版接受 `responses` 或 `chat_completions`，provider 用于选择适配器；不支持的组合在启动时拒绝。Tool 是进程内注册对象，执行回调不出现在对外 DTO 或持久化配置中。
 
 ## 六 实体与数据归属
 
@@ -334,7 +356,7 @@ Worker 的人格与头像是可选字段，workspace 由服务端根据 workerId
 
 首版能力绑定使用 worker 配置中的 ID 数组，启动校验引用完整性，避免同时维护数组和关联表两套真相。配置文件是数字人、模型、技能与权限的管理来源，数据库保存当前导入版本和历史运行快照；任务、文件绑定、消息和运行数据以数据库为准。工具执行函数只存在于代码注册表，不存入数据库。
 
-运行快照保存所选数字人、模型非敏感配置、权限和绑定技能的正文及资源快照；正文仍需经工具调用才进入模型上下文。技能内容 hash 作为技能版本，Run 中保存的完整配置是运行版本依据。配置或资源更新在下次启动导入，活动 Run 使用已固定版本。密钥解析结果、回调函数和 SDK 实例不进入快照。
+运行快照保存所选数字人、模型非敏感配置、权限和绑定技能的正文及资源快照；正文仍需经工具调用才进入模型上下文。技能内容 hash 作为技能版本，Run 中保存的完整配置是运行版本依据。配置或资源更新在下次启动导入，活动 Run 使用已固定版本。MCP 工具保存配置和 Schema 的 hash 与非敏感修订号；网页变更立即作用于新任务，活动和排队任务保留原工具与凭证闭包，重启后拒绝不匹配的旧任务调用。密钥解析结果、回调函数和 SDK 实例不进入快照。
 
 ## 七 启动装配与运行生命周期
 
@@ -412,6 +434,11 @@ queued  → running → succeeded
 | `GET /api/health` | 就绪与非敏感版本信息 |
 | `GET /api/workers` | 所有数字人的安全摘要，包括状态与是否可发送消息 |
 | `GET /api/workers/:workerId` | 安全详情：身份、能力名称，不含密钥或服务器路径 |
+| `GET /api/mcp` | MCP 配置、绑定、验证状态与工具摘要，凭证只返回是否已保存 |
+| `POST /api/mcp/probe` | 测试草稿连接并发现工具，不保存配置 |
+| `POST /api/mcp` | 新增 MCP 服务、工具白名单与数字人绑定，携带 expectedRevision |
+| `PUT /api/mcp/:id` | 编辑、启停或更新绑定；并发版本冲突返回 409 |
+| `DELETE /api/mcp/:id` | 按 expectedRevision 删除服务并解除新任务绑定 |
 | `POST /api/uploads` | multipart 单文件上传，返回 uploadId 和安全元数据 |
 | `POST /api/tasks` | `{ workerId, input, uploadId?, sessionId? }`，请求头带 `Idempotency-Key` |
 | `GET /api/sessions` | 按必填 workerId 查询会话摘要，支持 limit 与 offset |
@@ -428,9 +455,9 @@ queued  → running → succeeded
 
 统一错误结构为 `{ code, message, requestId, details? }`。配置与输入问题映射为 400，资源不存在为 404，状态或绑定冲突为 409，上传超限为 413，执行期错误保存在 Run；数据库或 HTTP 内部异常返回脱敏 500。contracts 维护精确 Schema。
 
-网页包含数字人卡片页和全局执行记录页。会话抽屉由数字人卡片打开，左侧列表始终按 workerId 查询，右侧按 sessionId 分页展示 Task 对应的用户消息与助手回复。网址保存 worker 与 session 选择，旧任务详情链接转换为对应会话。最新运行从游标 0 补读事件，终态使用最终结果并关闭 EventSource；较早回复从持久化记录加载。
+网页包含数字人卡片页、全局执行记录页和 MCP 管理页。会话抽屉由数字人卡片打开，左侧列表始终按 workerId 查询，右侧按 sessionId 分页展示 Task 对应的用户消息与助手回复。网址保存 worker 与 session 选择，旧任务详情链接转换为对应会话。最新运行从游标 0 补读事件，终态使用最终结果并关闭 EventSource；较早回复从持久化记录加载。
 
-网页展示执行状态、可见文本、工具名称与结果摘要，不展示模型内部推理链。网页不传入任意系统指令、文件绝对路径、工具 ID 列表或密钥来覆盖服务端配置。
+网页展示执行状态、可见文本、工具名称与结果摘要，不展示模型内部推理链。会话接口不接受任意系统指令、文件绝对路径、工具 ID 列表或密钥来覆盖服务端配置。MCP 管理使用独立配置接口，凭证只写不回显。
 
 ## 九 事件协议与持久化
 
@@ -484,6 +511,7 @@ SSE 使用 `id: seq`、`event: type`、`data: JSON`。服务端每 250 毫秒按
 | `load_skill` | skillId | 仅返回当前数字人已绑定技能的正文 |
 | `read_skill_resource` | skillId、技能内相对路径 | 仅允许该技能根内的 references/assets 文本；限制格式和大小 |
 | `read_file` | fileId、offset、limit | 仅允许当前 Task 引用且属于同一数字人与会话的文件；分段 limit 不超过 32,000 |
+| `mcp_<服务ID>__<工具名>` | 发现得到并经过校验的对象 Schema | 服务白名单 + worker.mcpServerIds/toolIds + policy.allowedToolIds；首版只读文本结果，不超过 128,000 UTF-8 字节 |
 
 首版 fileId 等于 uploadId；对模型只作为文件标识使用。read_file 的 offset 默认 0、limit 默认 32,000，返回 content、offset、nextOffset、totalChars 和 truncated。所有资源读取工具使用相同的有界分段原则；参数均由各工具 Schema 校验。
 
@@ -507,14 +535,22 @@ ContextBuilder 的组织顺序固定为平台规则、数字人身份与职责�
 
 Session 保存多轮用户输入与最终回复。Core 从同一会话已完成的 Task 中读取最近最多 20 条完整用户与助手消息，按整轮保留且总量不超过 32,000 字符；Runtime 转换为 SDK 输入并添加当前消息。失败、取消或仍在执行的消息不作为完成的历史轮次回放。该机制支持文字追问，不恢复上次 Run 的工具调度或 SDK 专有运行状态；这些状态恢复仍属后续扩展。
 
-首版验收使用有限的任务输入、单文件与单技能；框架支持绑定多个技能。默认输入最多 10,000 字符、工具单次返回最多 32,000 字符、10 轮、180 秒，模型输出上限由模型配置设置。部署配置可在受校验范围内调整。超长文件返回显式截断标识与已读范围，允许 `read_file` 通过受限 offset/limit 分段读取，不能静默视为全文。上下文超过模型限制时模型适配器报告调用失败，摘要压缩后续加入。
+首版验收使用有限的任务输入、单文件与单技能；框架支持绑定多个技能。默认输入最多 10,000 字符、内置文本工具单次返回最多 32,000 字符、10 轮、180 秒，模型输出上限由模型配置设置。部署配置可在受校验范围内调整。超长文件返回显式截断标识与已读范围，允许 `read_file` 通过受限 offset/limit 分段读取，不能静默视为全文。上下文超过模型限制时模型适配器报告调用失败，摘要压缩后续加入。
+
+### MCP 连接与执行
+
+Infrastructure 从 config/mcp.yaml 读取首次启动的服务种子，后续通过 LocalMcpSettingsStore 原子保存到数据目录的 mcp-settings.json，文件权限为 0600；Core 的 McpManagement 管理连接、白名单、数字人绑定、并发修订与配置快照；Runtime 的 McpToolRegistry 使用 SDK 连接 Stdio / Streamable HTTP。bootstrap 发现所有已启用服务，并将绑定数字人的白名单工具与内置工具一起装配到注册表及权限策略。未直接将原生 mcpServers 暴露给 Agent，所有回调仍经过 authorizedTools。
+
+发现阶段校验工具存在、只读声明与参数约束，不支持的 Schema 拒绝启用保存。每次调用重新连接并核对定义，完成、错误、超时与取消后关闭；平台关闭会中止握手和调用。不自动重试工具执行。远程 isError、非文本与过大结果转为脱敏失败事件。MCP 返回内容只作为工具数据，不具备授予权限的作用。
+
+默认 reference 是独立的官方 SDK 示例服务，只读取两份公开资料。远程服务支持环境变量引用的 Bearer 凭证；Stdio 只传递基础系统变量与显式 envRefs。网页管理支持新增、探测、编辑、启停、删除和数字人绑定，保存后对新任务立即生效。直接填写的 HTTP Bearer 凭证只写不回显，以明文保存在本机权限受限的配置文件中。连接或发现失败时，保存不覆盖有效配置；启动时异常服务被标记为不可用，可在网页修正。首版不包含 OAuth、写工具、Resources/Prompts 和连接池。
 
 ## 十二 后续扩展接入位置
 
 | 扩展 | 接入边界 | 实现时增加的模块 |
 | --- | --- | --- |
 | 新模型供应商 | Core ModelConfig 与 Runtime 模型适配 | `agent-runtime/models` 下供应商实现与兼容测试 |
-| MCP | Core 工具注册与授权入口 | Runtime 下 MCP 连接、发现、过滤和调用桥接 |
+| MCP 扩展 | 已实现 Core 授权与 Runtime Stdio/Streamable HTTP 桥接 | 后续增加 OAuth、常驻连接池与资源能力 |
 | 长期记忆 | ContextBuilder 的可选信息输入 | Core memory 规则和检索接口、Infrastructure 存储适配 |
 | 知识库 | 受控检索工具与资料归属 | Core knowledge、文档提取和检索适配 |
 | 人工审批 | Core 工具授权与 Run 状态 | 审批实体、waiting 状态、审批接口、Runtime 状态保存恢复 |
@@ -540,7 +576,7 @@ Session 保存多轮用户输入与最终回复。Core 从同一会话已完成�
 
 ### 验收清单
 
-下列已完成项经类型检查、构建、20 项集成测试与 5 项浏览器测试验证。真实 DeepSeek 已完成文档任务验收与两轮文字会话的上下文记忆验证。
+下列已完成项经类型检查、构建、43 项集成测试与 7 项浏览器测试验证。真实 DeepSeek 已完成文档任务验收与两轮文字会话的上下文记忆验证。
 
 - [x] 网页选择通过配置导入的数字人，展示其身份与能力。
 - [x] 上传 Markdown 或纯文本文档并提交要求，返回唯一任务标识。
@@ -556,6 +592,8 @@ Session 保存多轮用户输入与最终回复。Core 从同一会话已完成�
 - [x] Web 与 Core 不导入 SDK，Core 不导入 Fastify、Drizzle 或磁盘实现。
 - [x] 数字人卡片打开双栏会话抽屉，同一会话可连续追问并刷新恢复。
 - [x] 会话按数字人隔离，附件仅在同一会话复用，旧数据库升级保留原记录。
+- [x] Stdio 与 Streamable HTTP MCP 发现、绑定、授权、凭证、异常、超时、取消与清理经过真实协议验证。
+- [x] 真实 DeepSeek 加载 Skill 并调用 MCP 示例服务，并注明资料来源与版本；网页可追问并刷新恢复。
 
 测试使用确定性模型验证事件重放、幂等、授权、取消和持久化，不以真实模型输出逐字断言。真实供应商至少完成一次人工或受控端到端验收并记录模型、协议、工具调用结果与限制，不能以模拟测试替代。
 

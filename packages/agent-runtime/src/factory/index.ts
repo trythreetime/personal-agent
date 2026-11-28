@@ -19,7 +19,7 @@ export function createAgent(
         : {}),
     },
     tools: tools.map((t) => {
-      if (plan.model.provider !== 'openai-compatible')
+      if (plan.model.provider !== 'openai-compatible' && !t.inputSchema)
         return tool({
           name: t.id,
           description: t.description,
@@ -27,7 +27,9 @@ export function createAgent(
           execute: (args) => t.execute(args),
           errorFunction: null,
         });
-      const schema = z.toJSONSchema(t.parameters);
+      const generated = z.toJSONSchema(t.parameters);
+      const schema = t.inputSchema ? (t.inputSchema as typeof generated) : generated;
+      const { '~standard': standard, ...jsonSchema } = schema;
       // 兼容服务不启用供应商 strict 扩展；参数仍由 Core 的 Zod Schema 校验。
       // 重新构造普通 JSON 对象，避免将 Zod 附带的 Standard Schema 元信息传给 SDK。
       return tool({
@@ -35,6 +37,7 @@ export function createAgent(
         description: t.description,
         strict: false,
         parameters: {
+          ...jsonSchema,
           type: 'object',
           properties: schema.properties ?? {},
           required: schema.required ?? [],

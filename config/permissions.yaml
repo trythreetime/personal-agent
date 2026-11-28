@@ -1,4 +1,4 @@
 - id: analyst-readonly
-  allowedToolIds: [load_skill, read_skill_resource, read_file]
+  allowedToolIds: [load_skill, read_skill_resource, read_file, mcp_reference__read_note]
   readTaskFile: true
   readSkillResources: true

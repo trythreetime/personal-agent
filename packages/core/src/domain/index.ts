@@ -11,6 +11,7 @@ export const workerConfigSchema = z.object({
   modelId: id,
   skillIds: z.array(id),
   toolIds: z.array(id),
+  mcpServerIds: z.array(id).default([]),
   permissionPolicyId: id,
   status: z.enum(['active', 'disabled']).default('active'),
 });
@@ -35,6 +36,10 @@ export const policySchema = z.object({
 export type Worker = z.infer<typeof workerConfigSchema>;
 export type ModelConfig = z.infer<typeof modelConfigSchema>;
 export type PermissionPolicy = z.infer<typeof policySchema>;
+export { mcpServerConfigSchema } from '@digital-worker/contracts';
+export type { McpServerConfig } from '@digital-worker/contracts';
+export const mcpToolId = (serverId: string, toolName: string) =>
+  'mcp_' + serverId + '__' + toolName;
 export interface Skill {
   id: string;
   name: string;
@@ -54,6 +59,7 @@ export interface ExecutionSnapshot {
   model: ModelConfig;
   policy: PermissionPolicy;
   skills: Skill[];
+  toolVersions?: Record<string, string>;
 }
 export interface ExecutionPlan {
   taskId: string;
@@ -96,6 +102,8 @@ export interface ToolDefinition {
   id: string;
   description: string;
   parameters: z.ZodObject;
+  inputSchema?: Record<string, unknown>;
+  source?: { type: 'mcp'; serverId: string; toolName: string; version: string };
   riskLevel: 'low' | 'medium' | 'high';
   requiresApproval: boolean;
   enabled: boolean;
@@ -105,6 +113,7 @@ export interface RuntimeTool {
   id: string;
   description: string;
   parameters: z.ZodObject;
+  inputSchema?: Record<string, unknown>;
   execute: (args: unknown) => Promise<unknown>;
 }
 export interface RuntimeResult {

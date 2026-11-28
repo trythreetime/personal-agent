@@ -8,4 +8,6 @@
 
 DeepSeek 预设采用非思考模式，避免首版引入推理历史回放约定；默认模型来自 [DeepSeek 当前 Chat Completions 文档](https://api-docs.deepseek.com/api/create-chat-completion/)，可通过环境变量覆盖。不同供应商的实际兼容性需要各自凭证验证。
 
-未来 MCP 与 SDK Session 适配在本包增加。DemoRuntime 是显式启用的固定流程，不能作为真实模型验收结果。
+`src/mcp` 使用 SDK 的 Stdio / Streamable HTTP 客户端发现并调用已授权的只读工具。启动发现后关闭连接，每次工具调用独立连接、核对定义并在结束后关闭；支持超时、取消和环境变量凭证引用。工具经 Core 包装后才提供给 Agent，不使用绕过授权的原生 mcpServers 自动调用。
+
+SDK Session 适配仍属后续扩展。DemoRuntime 是显式启用的固定流程，不能作为真实模型验收结果。

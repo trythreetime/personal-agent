@@ -15,7 +15,7 @@ import {
   BreadcrumbItem,
   Tag,
 } from 'ant-design-vue';
-import { TeamOutlined, HistoryOutlined } from '@ant-design/icons-vue';
+import { TeamOutlined, HistoryOutlined, ApiOutlined } from '@ant-design/icons-vue';
 import { api } from './lib/api';
 import { uiLocale, uiTheme } from './ui/theme';
 
@@ -23,7 +23,13 @@ const route = useRoute();
 const mode = ref('');
 const online = ref(false);
 const collapsed = ref(false);
-const selectedKeys = computed(() => [route.path === '/history' ? 'history' : 'workers']);
+const currentSection = computed(() =>
+  route.path === '/history' ? 'history' : route.path === '/mcp' ? 'mcp' : 'workers',
+);
+const selectedKeys = computed(() => [currentSection.value]);
+const sectionTitle = computed(
+  () => ({ workers: '数字人', history: '执行记录', mcp: 'MCP 管理' })[currentSection.value],
+);
 onMounted(async () => {
   try {
     const health = await api<{ mode: string }>('/health');
@@ -60,6 +66,10 @@ onMounted(async () => {
               ><template #icon><HistoryOutlined aria-hidden="true" /></template
               ><RouterLink to="/history">执行记录</RouterLink></MenuItem
             >
+            <MenuItem key="mcp"
+              ><template #icon><ApiOutlined aria-hidden="true" /></template
+              ><RouterLink to="/mcp">MCP 管理</RouterLink></MenuItem
+            >
           </Menu>
         </nav>
         <div v-if="!collapsed" class="sidebar-bottom">
@@ -77,14 +87,13 @@ onMounted(async () => {
         <LayoutHeader class="topbar">
           <Breadcrumb
             ><BreadcrumbItem>工作空间</BreadcrumbItem
-            ><BreadcrumbItem>{{
-              route.path === '/history' ? '执行记录' : '数字人'
-            }}</BreadcrumbItem></Breadcrumb
+            ><BreadcrumbItem>{{ sectionTitle }}</BreadcrumbItem></Breadcrumb
           >
           <nav class="mobile-navigation" aria-label="移动导航">
             <Menu mode="horizontal" :selected-keys="selectedKeys">
               <MenuItem key="workers"><RouterLink to="/">数字人</RouterLink></MenuItem>
               <MenuItem key="history"><RouterLink to="/history">执行记录</RouterLink></MenuItem>
+              <MenuItem key="mcp"><RouterLink to="/mcp">MCP 管理</RouterLink></MenuItem>
             </Menu>
           </nav>
           <Tag class="local-badge">LOCAL</Tag>

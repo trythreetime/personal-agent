@@ -14,6 +14,17 @@ export class DemoRuntime implements AgentRuntime {
     await setTimeout(180, undefined, { signal });
     if (plan.snapshot.skills.length)
       await invoke('load_skill', { skillId: plan.snapshot.skills[0].id });
+    if (
+      plan.input.includes('查询示例资料') &&
+      tools.some((t) => t.id === 'mcp_reference__read_note')
+    ) {
+      const result = await invoke('mcp_reference__read_note', { noteId: 'platform-overview' });
+      const output =
+        '# MCP 资料查询预览\n\n> 本地演示流程，未调用模型；以下资料通过真实 MCP 工具读取。\n\n' +
+        String(result.content);
+      await emit({ type: 'output.delta', payload: { delta: output } });
+      return { output, usage: emptyUsage() };
+    }
     let content = '';
     let offset = 0;
     if (plan.fileId)
