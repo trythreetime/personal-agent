@@ -1,0 +1,21 @@
+# Opt-in example only: the platform loads config/mcp.yaml, not this file.
+# Replace each --repo value with an explicitly approved owner/repository.
+- id: github
+  transport: stdio
+  command: node
+  args:
+    - mcp-servers/github/src/index.mjs
+    - --repo
+    - your-org/your-repo
+  # Optional for public repositories. For private access, define MCP_GITHUB_TOKEN
+  # in the server environment, then uncomment these explicit credential references.
+  # envRefs:
+  #   GITHUB_TOKEN: env:MCP_GITHUB_TOKEN
+  allowedTools:
+    - read_readme
+    - list_issues
+    - search_issues
+    - list_pull_requests
+    - search_pull_requests
+  timeoutMs: 10000
+  enabled: true
